@@ -153,6 +153,9 @@ final class FutureImpl<T> implements Future<T> {
                     updateThread.run();
                     try {
                         task.run(complete::with);
+                    } catch (final InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();
+                        complete.with(Try.failure(new InternalInterruptedException(interruptedException)));
                     } catch (Throwable x) {
                         complete.with(Try.failure(x));
                     }
@@ -235,9 +238,11 @@ final class FutureImpl<T> implements Future<T> {
                         if (waitingThread.isInterrupted()) {
                             tryComplete(Try.failure(new ExecutionException(new InterruptedException())));
                         }
+                        handleInterruptedException();
                     } catch (Throwable x) {
                         tryComplete(Try.failure(x));
                     }
+//                    handleInterruptedException();
                     return isCompleted();
                 }
 
@@ -247,7 +252,24 @@ final class FutureImpl<T> implements Future<T> {
                 }
             });
         } catch (Throwable x) {
-            tryComplete(Try.failure(x));
+//            if(x instanceof InternalInterruptedException) {
+//                tryComplete(Try.failure(x.getCause()));
+//            } else {
+//            handleInterruptedException();
+                tryComplete(Try.failure(x));
+//            }
+        }
+    }
+
+    private void handleInterruptedException() throws Throwable{
+        if (isCompleted()) {
+            Try<T> result = value.get();
+            if (result.isFailure()) {
+                Throwable cause = result.getCause();
+                if (cause instanceof InternalInterruptedException) {
+                    throw cause.getCause();
+                }
+            }
         }
     }
 

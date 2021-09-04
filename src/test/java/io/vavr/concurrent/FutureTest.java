@@ -144,6 +144,42 @@ public class FutureTest extends AbstractValueTest {
         assertThat(t.getMessage()).isEqualTo("ooops");
     }
 
+    @Test(expected = InterruptedException.class)
+    public void shouldThrowInterruptedException() {
+        Future<?> f1 = Future.of(() -> { throw new InterruptedException(); });
+        f1.await();
+        waitForMillis(100);
+    }
+
+    @Test(expected = InterruptedException.class)
+    public void shouldThrowInterruptedExceptionForAwaitWithTimeout() {
+        Future<?> f1 = Future.of(() -> { throw new InterruptedException(); });
+        f1.await(100, MILLISECONDS);
+        waitForMillis(100);
+    }
+
+    @Test(expected = InterruptedException.class)
+    public void shouldThrowInterruptedExceptionWhenAwaitingWithTimeoutAndNestedTryIsInterrupted() {
+        Future<?> f1 = Future.of(() -> Try.of(() -> { throw new InterruptedException(); }));
+        f1.await(100, MILLISECONDS);
+        waitForMillis(100);
+    }
+
+    @Test(expected = InterruptedException.class)
+    public void shouldThrowInterruptedExceptionForNestedTryWithInterruption() {
+        Future<?> f1 = Future.of(() -> Try.of(() -> { throw new InterruptedException(); }));
+        f1.await();
+        waitForMillis(100);
+    }
+
+    private void waitForMillis(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException interruptedException) {
+            throw new IllegalStateException(interruptedException);
+        }
+    }
+
     @Test
     public void shouldCreateFailureThatFailsWithError() {
         final Future<Object> failed = Future.failed(new Error("ooops")).await();
@@ -609,16 +645,16 @@ public class FutureTest extends AbstractValueTest {
         assertThat(future.getCause().get().getMessage()).isEqualTo("timeout after 100 milliseconds");
     }
     
-    @Test
-    public void shouldHandleInterruptedExceptionCorrectlyInAwait() {
-        // the Future should never be completed as long as the InterruptedException is rethrown by the Try...
-        final Future<Void> future = Future.run(() -> { throw new InterruptedException(); });
-        // ...therefore the timeout will occur
-        future.await(100, TimeUnit.MILLISECONDS);
-        assertThat(future.isFailure()).isTrue();
-        assertThat(future.getCause().get()).isInstanceOf(TimeoutException.class);
-        assertThat(future.getCause().get().getMessage()).isEqualTo("timeout after 100 milliseconds");
-    }
+//    @Test
+//    public void shouldHandleInterruptedExceptionCorrectlyInAwait() {
+//        // the Future should never be completed as long as the InterruptedException is rethrown by the Try...
+//        final Future<Void> future = Future.run(() -> { throw new InterruptedException(); });
+//        // ...therefore the timeout will occur
+//        future.await(100, TimeUnit.MILLISECONDS);
+//        assertThat(future.isFailure()).isTrue();
+//        assertThat(future.getCause().get()).isInstanceOf(TimeoutException.class);
+//        assertThat(future.getCause().get().getMessage()).isEqualTo("timeout after 100 milliseconds");
+//    }
 
     // -- failed
 
